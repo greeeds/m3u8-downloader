@@ -5,9 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <meta name="author" content="毛静文,Momo">
-  <meta name="keywords" content="m3u8 下载工具, 毛静文的博客,Momo's Blog">
-  <meta name="description" content="m3u8 下载工具,无需下载软件,打开网站即可下载,自动检测,一键下载">
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>m3u8 downloader</title>
   <style>
   /*全局设置*/
@@ -83,59 +81,6 @@
   }
   .m-p-github {
     bottom: 150px;
-  }
-  /*广告*/
-  .m-p-refer {
-    position: absolute;
-    left: 50px;
-    bottom: 50px;
-  }
-  .m-p-refer .text {
-    position: absolute;
-    top: -80px;
-    left: -40px;
-    animation-name: upAnimation;
-    transform-origin: center bottom;
-    animation-duration: 2s;
-    animation-fill-mode: both;
-    animation-iteration-count: infinite;
-    animation-delay: .5s;
-  }
-  .m-p-refer .close {
-    display: block;
-    position: absolute;
-    top: -110px;
-    right: -50px;
-    padding: 0;
-    margin: 0;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    z-index: 3;
-    transition: 0.3s all;
-    background-size: 30px 30px;
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-image: url(https://blog.luckly-mjw.cn/tool-show/m3u8-downloader/imgs/close.png);
-    background-color: rgba(0, 0, 0, 0.5);
-  }
-  .m-p-refer .close:hover {
-    background-color: rgba(0, 0, 0, 0.8);
-  }
-  .m-p-refer .link {
-    border-radius: 4px;
-    text-decoration: none;
-    background-color: #4E84E6;
-    transition: 0.3s all;
-  }
-  .m-p-refer .link:hover {
-    top: -10px;
-    color: #333333;
-    border: 1px solid transparent;
-    background: rgba(0, 0, 0, 0.6);
-    box-shadow: 2px 11px 20px 0 rgba(0, 0, 0, 0.6);
   }
   @keyframes upAnimation {
     0% {
@@ -343,13 +288,6 @@
 <body>
 <div id="loading">
   页面加载中，请耐心等待...
-  <h1 style="white-space: pre;">
-    推荐一个 m3u8 网页版提取工具，无需下载软件，打开网站即可下载，自动检测，一键下载。
-    工具链接：https://blog.luckly-mjw.cn/tool-show/m3u8-downloader/index.html
-    工具教程：https://segmentfault.com/a/1190000021847172?_ea=32289224
-    <img src="https://upyun.luckly-mjw.cn/Assets/blog/m3u8-downloader-121-75.jpeg" alt="m3u8 视频下载工具" title="logo"/>
-    <a target="_blank" href="https://blog.luckly-mjw.cn/tool-show/m3u8-downloader/index.html">点击跳转</a>
-  </h1>
 </div>
 <section id="m-app" v-cloak>
   <!--顶部操作提示-->
@@ -446,6 +384,8 @@ new Vue({
         endSegment: '', // 截止片段
         targetSegment: 1, // 待下载片段
       },
+      threadNum: 20, // 下载线程数
+      suffix:['.ts','.png','.image'], // 后缀
       aesConf: { // AES 视频解密配置
         method: '', // 加密算法
         uri: '', // key 所在文件路径
@@ -566,14 +506,16 @@ new Vue({
           this.finishList = []
 
           // 提取 ts 视频片段地址
-          m3u8Str.split('\n').forEach((item) => {
-            if (item.toLowerCase().indexOf('.ts') > -1 || item.toLowerCase().indexOf('.image') > -1) {
-              this.tsUrlList.push(this.applyURL(item, this.url))
-              this.finishList.push({
-                title: item,
-                status: ''
-              })
-            }
+          m3u8Str.split('\n').filter((item)=>
+            this.suffix.findIndex((a) => {
+              return item.toLowerCase().indexOf(a) > -1;
+            }) > -1
+          ).forEach((item) => {
+            this.tsUrlList.push(this.applyURL(item, this.url))
+            this.finishList.push({
+              title: item,
+              status: ''
+            })
           })
 
           // 仅获取视频片段数
@@ -687,7 +629,7 @@ new Vue({
       }
 
       // 建立多少个 ajax 线程
-      for (let i = 0; i < Math.min(10, this.rangeDownload.targetSegment - this.finishNum); i++) {
+      for (let i = 0; i < Math.min(this.threadNum, this.rangeDownload.targetSegment - this.finishNum); i++) {
         download(i)
       }
     },
