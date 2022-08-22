@@ -385,7 +385,8 @@ new Vue({
         targetSegment: 1, // 待下载片段
       },
       threadNum: 20, // 下载线程数
-      suffix:['.ts','.png','.image'], // 后缀
+      retryTimes: 0,
+      suffix:['.ts','.png','.image','.jpg'], // 后缀
       aesConf: { // AES 视频解密配置
         method: '', // 加密算法
         uri: '', // key 所在文件路径
@@ -484,18 +485,6 @@ new Vue({
         return
       }
 
-      // 在下载页面才触发，代码注入的页面不需要校验
-      // 当前协议不一致，切换协议
-      if (location.href.indexOf('blog.luckly-mjw.cn') > -1 && this.url.indexOf(location.protocol) === -1) {
-        //alert('当前协议不一致，跳转至正确页面重新下载')
-        location.href = `${this.url.split(':')[0]}://blog.luckly-mjw.cn/tool-show/m3u8-downloader/index.html?source=${this.url}`
-        return
-      }
-
-      // 在下载页面才触发，修改页面 URL，携带下载路径，避免刷新后丢失
-      if (location.href.indexOf('blog.luckly-mjw.cn') > -1) {
-        window.history.replaceState(null, '', `${location.href.split('?')[0]}?source=${this.url}`)
-      }
 
       this.tips = 'm3u8 文件下载中，请稍后'
       this.beginTime = new Date()
@@ -504,7 +493,7 @@ new Vue({
         success: (m3u8Str) => {
           this.tsUrlList = []
           this.finishList = []
-
+          this.retryTimes = 0;
           // 提取 ts 视频片段地址
           m3u8Str.split('\n').filter((item)=>
             this.suffix.findIndex((a) => {
@@ -576,7 +565,7 @@ new Vue({
 
     // 获取AES配置
     getAES() {
-      alert('视频被 AES 加密，点击确认，进行视频解码')
+      // alert('视频被 AES 加密，点击确认，进行视频解码')
       this.ajax({
         type: 'file',
         url: this.aesConf.uri,
@@ -625,6 +614,11 @@ new Vue({
           })
         } else if (this.downloadIndex < this.rangeDownload.endSegment) { // 跳过已经成功的片段
           !isPause && download()
+        } else if (this.downloadIndex >= this.rangeDownload.endSegment) {
+          this.retryTimes++;
+          if (this.retryTimes <= 3) {
+            this.retryAll()
+          }
         }
       }
 
@@ -680,7 +674,7 @@ new Vue({
 
     // 重新下载某个片段
     retry(index) {
-      if (this.finishList[index].status === 'error') {
+      if (this.finishList[index].status === 'error' || this.finishList[index].status === '') {
         this.finishList[index].status = ''
         this.ajax({
           url: this.tsUrlList[index],
@@ -698,14 +692,18 @@ new Vue({
 
     // 重新下载所有错误片段
     retryAll() {
+      let errNum = 0;
       this.finishList.forEach((item) => { // 重置所有片段状态
         if (item.status === 'error') {
-          item.status = ''
+          item.status = '';
+          errNum++;
         }
       })
-      this.errorNum = 0
-      this.downloadIndex = this.rangeDownload.startSegment - 1
-      this.downloadTS()
+      if (errNum > 0) {
+        this.errorNum = 0;
+        this.downloadIndex = this.rangeDownload.startSegment - 1
+        this.downloadTS()
+      }
     },
 
     // 下载整合后的TS文件
