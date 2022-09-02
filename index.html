@@ -412,14 +412,31 @@ new Vue({
   },
 
   methods: {
+    checkStr(str){
+      return str != null && str.length > 0;
+    },
+    getQueryString(name) {
+      let reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+      let r = window.location.search.substring(1).match(reg);
+      if (r != null) {
+        return decodeURIComponent(r[2]);
+      }
+      return null;
+    },
     // 获取链接中携带的资源链接
     getSource() {
-      let { href } = location
-      if (href.indexOf('?source=') > -1) {
-        this.url = href.split('?source=')[1]
+      let source = this.getQueryString("source");
+      if (source != null) {
+        this.url = source
+      }
+      let filename = this.getQueryString("name");
+      if (filename != null) {
+        this.filename = filename;
+      }
+      if (this.checkStr(this.url) && this.checkStr(this.filename)) {
+        this.getMP4()
       }
     },
-
     // 退出弹窗
     onKeyup(event) {
       if (event.keyCode === 13) { // 键入ESC
